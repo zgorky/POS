@@ -23,6 +23,8 @@ if 'cart' not in st.session_state:
     st.session_state.cart = []
 if 'total' not in st.session_state:
     st.session_state.total = 0.0
+if 'editing_product' not in st.session_state:
+    st.session_state.editing_product = None
 
 # Sepet işlemleri
 def update_cart():
@@ -73,8 +75,7 @@ def complete_sale():
 if page == "Satış Ekranı":
     st.title("💰 Satış Ekranı")
 
-    # Sol taraf - Ürün arama ve ekleme
-    col1, col2 = st.columns([2, 1])
+    col1, col2 = st.columns([1, 1])
 
     with col1:
         # Barkod okutma
@@ -88,78 +89,113 @@ if page == "Satış Ekranı":
             else:
                 st.error("Ürün bulunamadı!")
 
-        # Ürün listesi
-        st.subheader("📦 Ürünler")
-        products = utils.get_products()
-        if not products.empty:
-            st.dataframe(
-                products[['name', 'price', 'stock']],
-                column_config={
-                    "name": "Ürün Adı",
-                    "price": st.column_config.NumberColumn("Fiyat", format="%.2f ₺"),
-                    "stock": "Stok"
-                },
-                hide_index=True
-            )
-
-            selected_product = st.selectbox(
-                "Ürün seçin",
-                products['name'].tolist(),
-                key="product_select"
-            )
-            if st.button("Sepete Ekle"):
-                product = products[products['name'] == selected_product].iloc[0]
-                add_to_cart(product.to_dict())
-
-    # Sağ taraf - Sepet
+    # Sepet
     with col2:
         st.subheader("🛒 Sepet")
-        for item in st.session_state.cart:
-            col_a, col_b = st.columns([3, 1])
-            with col_a:
-                st.write(f"{item['name']}")
-                st.caption(f"{item['price']:.2f} ₺ x {item['quantity']} = {item['price'] * item['quantity']:.2f} ₺")
-            with col_b:
-                if st.button("➖", key=f"remove_{item['barcode']}"):
-                    item['quantity'] -= 1
-                    if item['quantity'] <= 0:
-                        st.session_state.cart.remove(item)
-                    update_cart()
-                if st.button("➕", key=f"add_{item['barcode']}"):
-                    products = utils.get_products()
-                    product = products[products['barcode'] == item['barcode']].iloc[0]
-                    if item['quantity'] < product['stock']:
-                        item['quantity'] += 1
+        if st.session_state.cart:
+            for item in st.session_state.cart:
+                col_a, col_b = st.columns([3, 1])
+                with col_a:
+                    st.write(f"{item['name']}")
+                    st.caption(f"{item['price']:.2f} ₺ x {item['quantity']} = {item['price'] * item['quantity']:.2f} ₺")
+                with col_b:
+                    if st.button("➖", key=f"remove_{item['barcode']}"):
+                        item['quantity'] -= 1
+                        if item['quantity'] <= 0:
+                            st.session_state.cart.remove(item)
                         update_cart()
-                    else:
-                        st.error("Yeterli stok yok!")
+                    if st.button("➕", key=f"add_{item['barcode']}"):
+                        products = utils.get_products()
+                        product = products[products['barcode'] == item['barcode']].iloc[0]
+                        if item['quantity'] < product['stock']:
+                            item['quantity'] += 1
+                            update_cart()
+                        else:
+                            st.error("Yeterli stok yok!")
 
-        st.markdown("---")
-        st.markdown(f"### Toplam: {st.session_state.total:.2f} ₺")
+            st.markdown("---")
+            st.markdown(f"### Toplam: {st.session_state.total:.2f} ₺")
 
-        if st.button("💳 Satışı Tamamla", type="primary"):
-            complete_sale()
+            if st.button("💳 Satışı Tamamla", type="primary"):
+                complete_sale()
+        else:
+            st.info("Sepet boş")
 
 elif page == "Ürün Yönetimi":
     st.title("📋 Ürün Yönetimi")
 
-    with st.form("new_product"):
-        st.subheader("Yeni Ürün Ekle")
-        barcode = st.text_input("Barkod")
-        name = st.text_input("Ürün Adı")
-        price = st.number_input("Fiyat", min_value=0.0, step=0.1)
-        stock = st.number_input("Stok", min_value=0, step=1)
+    # Ürün listesi
+    products = utils.get_products()
 
-        if st.form_submit_button("Ürün Ekle"):
-            if utils.add_product({
-                'barcode': barcode,
-                'name': name,
-                'price': price,
-                'stock': stock
-            }):
-                st.success("Ürün eklendi!")
-            else:
-                st.error("Bu barkoda sahip ürün zaten var!")
+    # Yeni ürün ekleme butonu
+    if st.button("➕ Yeni Ürün Ekle"):
+        st.session_state.editing_product = {}
+
+    # Ürün düzenleme formu
+    if st.session_state.editing_product is not None:
+        with st.form("product_form"):
+            st.subheader("Ürün Bilgileri")
+            barcode = st.text_input("Barkod", value=st.session_state.editing_product.get('barcode', ''))
+            name = st.text_input("Ürün Adı", value=st.session_state.editing_product.get('name', ''))
+            price = st.number_input("Fiyat", min_value=0.0, step=0.1, value=float(st.session_state.editing_product.get('price', 0)))
+            stock = st.number_input("Stok", min_value=0, step=1, value=int(st.session_state.editing_product.get('stock', 0)))
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.form_submit_button("💾 Kaydet"):
+                    product_data = {
+                        'barcode': barcode,
+                        'name': name,
+                        'price': price,
+                        'stock': stock
+                    }
+
+                    if 'barcode' in st.session_state.editing_product:
+                        # Güncelleme
+                        if utils.update_product(st.session_state.editing_product['barcode'], product_data):
+                            st.success("Ürün güncellendi!")
+                            st.session_state.editing_product = None
+                        else:
+                            st.error("Ürün güncellenemedi!")
+                    else:
+                        # Yeni ürün ekleme
+                        if utils.add_product(product_data):
+                            st.success("Ürün eklendi!")
+                            st.session_state.editing_product = None
+                        else:
+                            st.error("Bu barkoda sahip ürün zaten var!")
+
+            with col2:
+                if st.form_submit_button("❌ İptal"):
+                    st.session_state.editing_product = None
+
+    # Ürün grid'i
+    if not products.empty:
+        st.markdown("### 📦 Ürünler")
+        for i in range(0, len(products), 3):
+            cols = st.columns(3)
+            for j in range(3):
+                if i + j < len(products):
+                    product = products.iloc[i + j]
+                    with cols[j]:
+                        st.markdown(f"**{product['name']}**")
+                        st.caption(f"Barkod: {product['barcode']}")
+                        st.write(f"Fiyat: {product['price']:.2f} ₺")
+                        st.write(f"Stok: {product['stock']}")
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("✏️ Düzenle", key=f"edit_{product['barcode']}"):
+                                st.session_state.editing_product = product.to_dict()
+                        with col2:
+                            if st.button("🗑️ Sil", key=f"delete_{product['barcode']}"):
+                                if utils.delete_product(product['barcode']):
+                                    st.success("Ürün silindi!")
+                                    st.rerun()
+                                else:
+                                    st.error("Ürün silinemedi!")
+    else:
+        st.info("Henüz ürün bulunmuyor.")
 
 elif page == "Raporlar":
     st.title("📊 Raporlar")

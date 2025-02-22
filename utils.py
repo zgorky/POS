@@ -39,11 +39,31 @@ def add_product(product):
     if not products.empty and product['barcode'] in products['barcode'].values:
         return False
 
-    # Yeni ürün ekleme - pandas'ın yeni versiyonu için güncellendi
+    # Yeni ürün ekleme
     new_product = pd.DataFrame([product])
     products = pd.concat([products, new_product], ignore_index=True)
     products.to_csv(PRODUCTS_FILE, index=False)
     return True
+
+def update_product(barcode, updated_data):
+    """Ürün bilgilerini güncelle"""
+    products = get_products()
+    if barcode in products['barcode'].values:
+        idx = products[products['barcode'] == barcode].index[0]
+        for key, value in updated_data.items():
+            products.at[idx, key] = value
+        products.to_csv(PRODUCTS_FILE, index=False)
+        return True
+    return False
+
+def delete_product(barcode):
+    """Ürün sil"""
+    products = get_products()
+    if barcode in products['barcode'].values:
+        products = products[products['barcode'] != barcode]
+        products.to_csv(PRODUCTS_FILE, index=False)
+        return True
+    return False
 
 def update_stock(barcode, quantity):
     """Stok güncelle"""
