@@ -64,3 +64,20 @@ def save_sale(sale):
     new_sale = pd.DataFrame([sale])
     sales = pd.concat([sales, new_sale], ignore_index=True)
     sales.to_csv(SALES_FILE, index=False)
+
+def import_products(df):
+    """Toplu ürün yükleme"""
+    # Mevcut ürünleri al
+    current_products = get_products()
+
+    # Yeni ürünleri ekle/güncelle
+    if current_products.empty:
+        df.to_csv(PRODUCTS_FILE, index=False)
+    else:
+        # Barkodları string'e çevir
+        current_products['barcode'] = current_products['barcode'].astype(str)
+        df['barcode'] = df['barcode'].astype(str)
+
+        # Mevcut ürünleri güncelle ve yenilerini ekle
+        merged = pd.concat([current_products, df]).drop_duplicates(subset=['barcode'], keep='last')
+        merged.to_csv(PRODUCTS_FILE, index=False)
