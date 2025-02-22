@@ -15,6 +15,8 @@ if 'cart' not in st.session_state:
     st.session_state.cart = []
 if 'total' not in st.session_state:
     st.session_state.total = 0.0
+if 'barcode_key' not in st.session_state:
+    st.session_state.barcode_key = 0
 
 def update_cart():
     """Sepet toplamını güncelle"""
@@ -74,7 +76,8 @@ if page == "Satış Ekranı":
 
     # Sol taraf - Barkod okutma
     with col1:
-        barcode = st.text_input("🔍 Barkod Okut", key="barcode_input")
+        # Dinamik key ile input alanı
+        barcode = st.text_input("🔍 Barkod Okut", key=f"barcode_input_{st.session_state.barcode_key}")
         if barcode:
             products = utils.get_products()
             products['barcode'] = products['barcode'].astype(str)
@@ -82,7 +85,9 @@ if page == "Satış Ekranı":
 
             if not product.empty:
                 add_to_cart(product.iloc[0].to_dict())
-                st.session_state.barcode_input = ""  # Barkod alanını temizle
+                # Input'u temizlemek için key'i değiştir
+                st.session_state.barcode_key += 1
+                st.rerun()
             else:
                 st.error("Ürün bulunamadı!")
 
@@ -137,5 +142,6 @@ else:  # Ürün Yönetimi
             "stock": "Stok"
         },
         hide_index=True,
-        height=400
+        height=400,
+        key="product_editor"
     )
