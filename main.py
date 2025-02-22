@@ -75,16 +75,22 @@ col1, col2 = st.columns([2, 1])
 # Sol taraf - Ürün listesi
 with col1:
     products = utils.get_products()
+
+    # Barkod kolonunu string'e çevir
+    products['barcode'] = products['barcode'].astype(str)
+
     if search:
-        products = products[
-            (products['barcode'].str.contains(search, case=False)) |
-            (products['name'].str.contains(search, case=False))
+        filtered_products = products[
+            (products['barcode'].str.contains(search, case=False, na=False)) |
+            (products['name'].str.contains(search, case=False, na=False))
         ]
+    else:
+        filtered_products = products
 
     # Ürün tablosu
-    if not products.empty:
+    if not filtered_products.empty:
         selected_row = st.data_editor(
-            products,
+            filtered_products,
             column_config={
                 "barcode": "Barkod",
                 "name": "Ürün Adı",
@@ -99,7 +105,7 @@ with col1:
         # Seçili ürünü sepete ekle
         if st.button("➕ Sepete Ekle"):
             selected_indices = selected_row.index[0]
-            selected_product = products.iloc[selected_indices].to_dict()
+            selected_product = filtered_products.iloc[selected_indices].to_dict()
             add_to_cart(selected_product)
     else:
         st.info("Ürün bulunamadı")
@@ -120,7 +126,7 @@ with col2:
                     st.session_state.cart.remove(item)
                 update_cart()
             if st.button("➕", key=f"add_{item['barcode']}"):
-                if item['quantity'] < products[products['barcode'] == item['barcode']].iloc[0]['stock']:
+                if item['quantity'] < products[products['barcode'] == str(item['barcode'])].iloc[0]['stock']:
                     item['quantity'] += 1
                     update_cart()
                 else:
