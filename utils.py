@@ -8,7 +8,7 @@ SALES_FILE = "data/sales.csv"
 def initialize_database():
     """Veritabanı dosyalarını oluştur"""
     os.makedirs("data", exist_ok=True)
-    
+
     if not os.path.exists(PRODUCTS_FILE):
         pd.DataFrame({
             'barcode': [],
@@ -16,7 +16,7 @@ def initialize_database():
             'price': [],
             'stock': []
         }).to_csv(PRODUCTS_FILE, index=False)
-    
+
     if not os.path.exists(SALES_FILE):
         pd.DataFrame({
             'date': [],
@@ -34,13 +34,14 @@ def get_products():
 def add_product(product):
     """Yeni ürün ekle"""
     products = get_products()
-    
+
     # Barkod kontrolü
     if not products.empty and product['barcode'] in products['barcode'].values:
         return False
-    
-    # Yeni ürün ekleme
-    products = products.append(product, ignore_index=True)
+
+    # Yeni ürün ekleme - pandas'ın yeni versiyonu için güncellendi
+    new_product = pd.DataFrame([product])
+    products = pd.concat([products, new_product], ignore_index=True)
     products.to_csv(PRODUCTS_FILE, index=False)
     return True
 
@@ -60,6 +61,6 @@ def get_sales():
 def save_sale(sale):
     """Yeni satış kaydet"""
     sales = get_sales()
-    sales = sales.append(sale, ignore_index=True)
+    new_sale = pd.DataFrame([sale])
+    sales = pd.concat([sales, new_sale], ignore_index=True)
     sales.to_csv(SALES_FILE, index=False)
-
